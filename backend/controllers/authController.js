@@ -74,3 +74,37 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: 'Error login', error: error.message });
   }
 };
+
+// ===== UPDATE PROFILE IMAGE =====
+exports.updateProfileImage = (req, res) => {
+  const user_id = req.user.id;
+  const profile_image = req.file ? req.file.filename : null;
+
+  if (!profile_image) {
+    return res.status(400).json({ message: 'Tidak ada gambar yang diunggah' });
+  }
+
+  const sql = 'UPDATE users SET profile_image = ? WHERE id = ?';
+  db.query(sql, [profile_image, user_id], (err, result) => {
+    if (err) return res.status(500).json({ message: 'Gagal memperbarui foto profil', error: err });
+    if (result.affectedRows === 0) return res.status(404).json({ message: 'User tidak ditemukan' });
+    res.json({ message: 'Foto profil berhasil diperbarui', profile_image: profile_image }); // Mengembalikan nama file
+  });
+};
+
+// ===== UPDATE FCM TOKEN =====
+exports.updateFcmToken = (req, res) => {
+  const user_id = req.user.id; // Dari token JWT
+  const { fcm_token } = req.body;
+
+  if (!fcm_token) {
+    return res.status(400).json({ message: 'FCM token wajib diisi' });
+  }
+
+  const sql = 'UPDATE users SET fcm_token = ? WHERE id = ?';
+  db.query(sql, [fcm_token, user_id], (err, result) => {
+    if (err) return res.status(500).json({ message: 'Gagal menyimpan FCM token', error: err });
+    if (result.affectedRows === 0) return res.status(404).json({ message: 'User tidak ditemukan' });
+    res.json({ message: 'FCM token berhasil diperbarui' });
+  });
+};

@@ -1,22 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, StyleSheet, Button, TouchableOpacity, Alert, TextInput, Modal } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
-import * as Location from 'expo-location';
+import { View, Text, FlatList, StyleSheet, Button, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { useCart } from '../context/CartContext';
 import { useAuth } from './AuthContext';
 import { API_URL } from '../config';
 
 const CartScreen = () => {
     const { cartItems, removeFromCart, getTotalPrice, clearCart, updateQuantity } = useCart();
-    const [deliveryAddress, setDeliveryAddress] = useState('');
-    const [deliveryLat, setDeliveryLat] = useState(null);
-    const [deliveryLng, setDeliveryLng] = useState(null);
-    const [isMapVisible, setIsMapVisible] = useState(false);
+    const [address, setAddress] = useState('');
     const { user, token } = useAuth();
 
     const handleCheckout = async () => {
         if (cartItems.length === 0) return;
-        if (!deliveryAddress || !deliveryLat || !deliveryLng) {
+        if (!address) {
             Alert.alert('Error', 'Harap isi alamat pengiriman');
             return;
         }
@@ -25,9 +20,7 @@ const CartScreen = () => {
         const payload = {
             user_id: user.id,
             total_price: getTotalPrice(),
-            address: deliveryAddress,
-            lat: deliveryLat,
-            lng: deliveryLng,
+            address: address,
             products: cartItems.map(item => ({
                 product_id: item.id,
                 quantity: item.quantity,
@@ -50,7 +43,7 @@ const CartScreen = () => {
             if (response.ok) {
                 Alert.alert('Sukses', 'Pesanan Anda telah diterima!');
                 clearCart();
-                setDeliveryAddress('');
+                setAddress('');
             } else {
                 Alert.alert('Gagal', data.message || 'Terjadi kesalahan saat membuat pesanan');
             }
@@ -59,39 +52,6 @@ const CartScreen = () => {
             Alert.alert('Error', 'Koneksi ke server gagal');
         }
     };
-
-    const handleMapPress = (event) => {
-        const { latitude, longitude } = event.nativeEvent.coordinate;
-        setDeliveryLat(latitude);
-        setDeliveryLng(longitude);
-        // Reverse geocoding untuk mendapatkan alamat dari koordinat
-        Location.reverseGeocodeAsync({ latitude, longitude })
-            .then(result => {
-                if (result && result.length > 0) {
-                    const { street, name, city, region } = result[0];
-                    setDeliveryAddress(`${street || name}, ${city}, ${region}`);
-                }
-            })
-            .catch(err => console.error("Reverse geocode error:", err));
-    };
-
-    const openMapPicker = async () => {
-        let { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-            Alert.alert('Izin Lokasi', 'Aplikasi membutuhkan izin lokasi untuk memilih alamat di peta.');
-            return;
-        }
-        setIsMapVisible(true);
-    };
-
-    const confirmLocation = () => {
-        if (!deliveryLat || !deliveryLng) {
-            Alert.alert('Peringatan', 'Harap pilih lokasi di peta terlebih dahulu.');
-            return;
-        }
-        setIsMapVisible(false);
-    };
-
 
     return (
         <View style={styles.container}>
@@ -126,45 +86,11 @@ const CartScreen = () => {
                     />
                     <View style={styles.footer}>
                         <TextInput
-                            placeholder="Alamat Pengiriman (Pilih di peta)"
-                            value={deliveryAddress}
-                            onChangeText={setDeliveryAddress}
+                            placeholder="Alamat Pengiriman Lengkap"
+                            value={address}
+                            onChangeText={setAddress}
                             style={styles.addressInput}
-                            editable={false}
                         />
-                        <Button title="Pilih Lokasi di Peta" onPress={openMapPicker} color="#007bff" />
-                        <Modal
-                            visible={isMapVisible}
-                            onRequestClose={() => setIsMapVisible(false)}
-                            animationType="slide"
-                        >
-                            <View style={styles.mapModalContainer}>
-                                <MapView
-                                    style={styles.mapModal}
-                                    initialRegion={{
-                                        latitude: deliveryLat || -6.200000,
-                                        longitude: deliveryLng || 106.816666,
-                                        latitudeDelta: 0.0922,
-                                        longitudeDelta: 0.0421,
-                                    }}
-                                    onPress={handleMapPress}
-                                >
-                                    {deliveryLat && deliveryLng && (
-                                        <Marker
-                                            coordinate={{ latitude: deliveryLat, longitude: deliveryLng }}
-                                            title="Lokasi Pengiriman"
-                                        />
-                                    )}
-                                </MapView>
-                                <View style={styles.mapModalButtons}>
-                                    <Button title="Konfirmasi Lokasi" onPress={confirmLocation} color="#28a745" />
-                                    <Button title="Batal" onPress={() => setIsMapVisible(false)} color="#dc3545" />
-                                </View>
-                                {deliveryAddress ? (
-                                    <Text style={styles.selectedAddressText}>Terpilih: {deliveryAddress}</Text>
-                                ) : null}
-                            </View>
-                        </Modal>
                         <Text style={styles.totalText}>Total Tagihan: Rp {getTotalPrice()}</Text>
                         <Button title="Buat Pesanan" onPress={handleCheckout} color="#ee4d2d" />
                         <TouchableOpacity style={styles.clearButton} onPress={clearCart}>
@@ -217,12 +143,6 @@ const styles = StyleSheet.create({
     totalText: { fontSize: 18, fontWeight: 'bold', marginBottom: 15, color: '#ee4d2d' },
     clearButton: { marginTop: 15 },
     clearText: { color: '#666', textAlign: 'center', textDecorationLine: 'underline' }
-    ,
-    mapModalContainer: { flex: 1, paddingTop: 50 },
-    mapModal: { flex: 1 },
-    mapModalButtons: { flexDirection: 'row', justifyContent: 'space-around', padding: 10 },
-    selectedAddressText: { padding: 10, textAlign: 'center', backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#eee' }
-
 });
 
 export default CartScreen;

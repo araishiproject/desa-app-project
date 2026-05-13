@@ -2,7 +2,20 @@ const db = require('../config/db');
 
 // Ambil semua barang dari database
 exports.getAllProducts = (req, res) => {
-    db.query("SELECT * FROM products", (err, results) => {
+    const { search, category } = req.query;
+    let sql = "SELECT * FROM products";
+    const params = [];
+
+    if (search) {
+        sql += " WHERE nama LIKE ?";
+        params.push(`%${search}%`);
+    }
+    if (category) {
+        sql += search ? " AND category = ?" : " WHERE category = ?";
+        params.push(category);
+    }
+
+    db.query(sql, params, (err, results) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(results);
     });

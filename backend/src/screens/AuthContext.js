@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// ... (kode yang sudah ada)
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
@@ -35,8 +36,13 @@ export const AuthProvider = ({ children }) => {
         await AsyncStorage.removeItem('token');
     };
 
+    const updateUser = async (newUserData) => {
+        setUser(prevUser => ({ ...prevUser, ...newUserData }));
+        await AsyncStorage.setItem('user', JSON.stringify({ ...user, ...newUserData }));
+    };
+
     return (
-        <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!token, loading }}>
+        <AuthContext.Provider value={{ user, token, login, logout, updateUser, isAuthenticated: !!token, loading }}>
             {children}
         </AuthContext.Provider>
     );

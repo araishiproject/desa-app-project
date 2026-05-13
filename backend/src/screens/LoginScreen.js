@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, Alert, StyleSheet, Text } from 'react-native';
 import { useAuth } from './AuthContext';
-
-const API_BASE_URL = 'http://192.168.1.15:5000';
-const LOGIN_URL = `${API_BASE_URL}/api/auth/login`;
+import { API_URL } from '../config';
 
 export default function LoginScreen({ navigation }) {
   const [phone, setPhone] = useState('');
@@ -19,7 +17,7 @@ export default function LoginScreen({ navigation }) {
 
     setLoading(true);
     try {
-      const res = await fetch(LOGIN_URL, {
+      const res = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

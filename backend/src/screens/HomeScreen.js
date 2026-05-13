@@ -1,17 +1,31 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Button, Image } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Button, Image, TextInput, ActivityIndicator } from 'react-native';
 import { useCart } from '../context/CartContext';
+import { API_BASE_URL, API_URL } from '../config';
 
 const HomeScreen = ({ navigation }) => {
     const [products, setProducts] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('');
+    const categories = ['Makanan', 'Minuman', 'Pakaian', 'Elektronik', 'Lain-lain']; // Contoh kategori
     const { addToCart } = useCart();
 
     useEffect(() => {
-        fetch('http://10.0.2.2:5000/api/products') // Port disesuaikan ke 5000 sesuai server.js
-            .then(res => res.json())
-            .then(data => setProducts(data))
-            .catch(err => console.error(err));
-    }, []);
+        fetchProducts();
+    }, [searchQuery, selectedCategory]);
+
+    const fetchProducts = async () => {
+        setLoading(true);
+        let url = `${API_URL}/products?`;
+        if (searchQuery) url += `search=${searchQuery}&`;
+        if (selectedCategory) url += `category=${selectedCategory}&`;
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            setProducts(data);
+        } catch (err) { console.error(err); } finally { setLoading(false); }
+    };
 
     return (
         <View style={styles.container}>
@@ -19,26 +33,47 @@ const HomeScreen = ({ navigation }) => {
                 <Text style={styles.title}>Katalog Shopee Desa</Text>
                 <Button title="Keranjang" onPress={() => navigation.navigate('Cart')} color="#ee4d2d" />
             </View>
-            <FlatList
-                data={products}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={({ item }) => (
-                    <View style={styles.card}>
-                        <Image 
-                            source={{ uri: `http://10.0.2.2:5000/uploads/${item.image}` }} 
-                            style={styles.productImage} 
-                        />
-                        <View style={styles.info}>
-                            <Text style={styles.name}>{item.nama}</Text>
-                            <Text style={styles.price}>Rp {item.harga}</Text>
-                            <Text>Stok: {item.stok}</Text>
-                        </View>
-                        <TouchableOpacity style={styles.addButton} onPress={() => addToCart(item)}>
-                            <Text style={styles.addButtonText}>Tambah</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
+            <TextInput
+                style={styles.searchInput}
+                placeholder="Cari produk..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
             />
+            <View style={styles.categoryFilter}>
+                {categories.map(cat => (
+                    <TouchableOpacity
+                        key={cat}
+                        style={[styles.categoryButton, selectedCategory === cat && styles.selectedCategoryButton]}
+                        onPress={() => setSelectedCategory(selectedCategory === cat ? '' : cat)}
+                    >
+                        <Text style={[styles.categoryButtonText, selectedCategory === cat && styles.selectedCategoryButtonText]}>{cat}</Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
+            {loading ? (
+                <ActivityIndicator size="large" color="#ee4d2d" style={styles.loadingIndicator} />
+            ) : (
+                <FlatList
+                    data={products}
+                    keyExtractor={(item) => item.id.toString()}
+                    renderItem={({ item }) => (
+                        <View style={styles.card}>
+                            <Image 
+                                source={{ uri: `${API_BASE_URL}/uploads/${item.image}` }} 
+                                style={styles.productImage} 
+                            />
+                            <View style={styles.info}>
+                                <Text style={styles.name}>{item.nama}</Text>
+                                <Text style={styles.price}>Rp {item.harga}</Text>
+                                <Text>Stok: {item.stok}</Text>
+                            </View>
+                            <TouchableOpacity style={styles.addButton} onPress={() => addToCart(item)}>
+                                <Text style={styles.addButtonText}>Tambah</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+                />
+            )}
         </View>
     );
 };
@@ -53,7 +88,14 @@ const styles = StyleSheet.create({
     name: { fontSize: 18, fontWeight: 'bold' },
     price: { color: '#ee4d2d', fontWeight: 'bold' },
     addButton: { backgroundColor: '#ee4d2d', paddingVertical: 8, paddingHorizontal: 15, borderRadius: 5 },
-    addButtonText: { color: '#fff', fontWeight: 'bold' }
+    addButtonText: { color: '#fff', fontWeight: 'bold' },
+    searchInput: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, marginBottom: 15 },
+    categoryFilter: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 15, gap: 10 },
+    categoryButton: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, backgroundColor: '#e0e0e0' },
+    selectedCategoryButton: { backgroundColor: '#ee4d2d' },
+    categoryButtonText: { color: '#333', fontSize: 12 },
+    selectedCategoryButtonText: { color: '#fff' },
+    loadingIndicator: { marginTop: 50 }
 });
 
 export default HomeScreen;
