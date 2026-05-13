@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Desa App",
+    "slug": "desa_app_project",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./desa-app-mobile/assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./desa-app-mobile/assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./desa-app-mobile/assets/icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.aris.desaapp"
+    },
+    "web": {
+      "favicon": "./desa-app-mobile/assets/icon.png",
+      "bundler": "metro"
+    }
+  }
+}
