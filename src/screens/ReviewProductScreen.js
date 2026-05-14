@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TextInput, Button, Alert, Image, TouchableOpacity } from 'react-native';
-import { Rating } from 'react-native-ratings'; // Perlu instal react-native-ratings
+import { Rating } from 'react-native-ratings';
 import { API_URL, API_BASE_URL } from '../config';
-import { useAuth } from '../screens/AuthContext';
+import { useAuth } from './AuthContext'; // Path diperbaiki
 
 const ReviewProductScreen = ({ route, navigation }) => {
     const { orderId, products } = route.params;

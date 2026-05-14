@@ -94,36 +94,70 @@ exports.createOrder = (req, res) => {
     // Mengambil user_id dari token (melalui authMiddleware) untuk keamanan
     const user_id = req.user.id;
     const { total_price, address, products, lat, lng } = req.body;
-    
+
+    if (!Array.isArray(products) || products.length === 0) {
+        return res.status(400).json({ message: 'Keranjang kosong' });
+    }
+
     db.beginTransaction(err => {
         if (err) return res.status(500).json({ message: 'Gagal memulai transaksi', error: err });
 
         const sql = 'INSERT INTO orders (user_id, total_price, address, status, lat, lng) VALUES (?, ?, ?, ?, ?, ?)';
         db.query(sql, [user_id, total_price, address, 'Pending', lat, lng], (err, result) => {
             if (err) {
-                return db.rollback(() => res.status(500).json({ message: 'Gagal membuat pesanan', error: err }));
+                console.error('Order Insert Error:', err);
+                return db.rollback(() => res.status(500).json({ message: 'Gagal membuat pesanan' }));
             }
-            
-            const orderId = result.insertId;
 
-            if (products && products.length > 0) {
-                const itemValues = products.map(p => [orderId, p.product_id, p.quantity, p.price]);
-                const itemSql = 'INSERT INTO order_items (order_id, product_id, quantity, price) VALUES ?';
-                
-                db.query(itemSql, [itemValues], (itemErr) => {
-                    if (itemErr) {
-                        return db.rollback(() => res.status(500).json({ message: 'Gagal menyimpan detail produk', error: itemErr }));
+            const orderId = result.insertId;
+            let completedQueries = 0;
+            let hasError = false;
+
+            // Proses setiap produk: Cek stok, Update stok, lalu simpan Order Item
+            products.forEach((p) => {
+                if (hasError) return;
+
+                // 1. Cek stok tersedia
+                db.query('SELECT stok, nama FROM products WHERE id = ? FOR UPDATE', [p.product_id], (stokErr, stokRes) => {
+                    if (hasError) return;
+                    if (stokErr || stokRes.length === 0) {
+                        hasError = true;
+                        return db.rollback(() => { if (!res.headersSent) res.status(500).json({ message: 'Produk tidak ditemukan' }); });
                     }
-                    db.commit(err => {
-                        if (err) return db.rollback(() => res.status(500).json({ error: err }));
-                        res.status(201).json({ message: 'Pesanan berhasil dibuat', orderId });
+                    if (stokRes[0].stok < p.quantity) {
+                        hasError = true;
+                        return db.rollback(() => { if (!res.headersSent) res.status(400).json({ message: `Stok ${stokRes[0].nama} tidak mencukupi` }); });
+                    }
+
+                    // 2. Kurangi stok
+                    db.query('UPDATE products SET stok = stok - ? WHERE id = ?', [p.quantity, p.product_id], (updErr) => {
+                        if (hasError) return;
+                        if (updErr) {
+                            hasError = true;
+                            return db.rollback(() => res.status(500).json({ message: 'Gagal update stok' }));
+                        }
+
+                        // 3. Masukkan ke item pesanan
+                        db.query('INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)', 
+                        [orderId, p.product_id, p.quantity, p.price], (itemErr) => {
+                            if (hasError) return;
+                            if (itemErr) {
+                                hasError = true;
+                                return db.rollback(() => res.status(500).json({ message: 'Gagal menyimpan detail produk' }));
+                            }
+
+                            completedQueries++;
+                            // Jika semua produk sudah diproses, baru commit
+                            if (completedQueries === products.length) {
+                                db.commit(err => {
+                                    if (err) return db.rollback(() => res.status(500).json({ error: err }));
+                                    res.status(201).json({ message: 'Pesanan berhasil dibuat', orderId });
+                                });
+                            }
+                        });
                     });
                 });
-            } else {
-                db.commit(() => {
-                    res.status(201).json({ message: 'Pesanan dibuat tanpa detail produk', orderId });
-                });
-            }
+            });
         });
     });
 };

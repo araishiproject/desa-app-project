@@ -5,19 +5,19 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
 // Import Contexts
-import { AuthProvider, useAuth } from './backend/src/screens/AuthContext';
-import { CartProvider } from './backend/src/context/CartContext';
+import { AuthProvider, useAuth } from './src/screens/AuthContext'; // Path diperbaiki
+import { CartProvider } from './src/context/CartContext'; // Path diperbaiki
 
 // Import Screens
-import LoginScreen from './backend/src/screens/LoginScreen';
-import HomeScreen from './backend/src/screens/HomeScreen';
-import CartScreen from './backend/src/screens/CartScreen';
-import ProfileScreen from './backend/src/screens/ProfileScreen';
-import OrderDetailScreen from './backend/src/screens/OrderDetailScreen';
-import CourierMapScreen from './backend/src/screens/CourierMapScreen';
-import AdminDashboardScreen from './backend/src/screens/AdminDashboardScreen';
-import CourierDashboardScreen from './backend/src/screens/CourierDashboardScreen';
-import ReviewProductScreen from './backend/src/screens/ReviewProductScreen';
+import LoginScreen from './src/screens/LoginScreen'; // Path diperbaiki
+import HomeScreen from './src/screens/HomeScreen'; // Path diperbaiki
+import CartScreen from './src/screens/CartScreen'; // Path diperbaiki
+import ProfileScreen from './src/screens/ProfileScreen'; // Path diperbaiki
+import OrderDetailScreen from './src/screens/OrderDetailScreen'; // Path diperbaiki
+import CourierMapScreen from './src/screens/CourierMapScreen'; // Path diperbaiki
+import AdminDashboardScreen from './src/screens/AdminDashboardScreen'; // Path diperbaiki
+import CourierDashboardScreen from './src/screens/CourierDashboardScreen'; // Path diperbaiki
+import ReviewProductScreen from './src/screens/ReviewProductScreen'; // Path diperbaiki
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();

@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, TextInput, Button, Platform, Image, Modal } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, TextInput, Button, Platform, Image, Modal, ScrollView } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as ImagePicker from 'expo-image-picker';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps'; // Tambahkan PROVIDER_GOOGLE
 import * as Location from 'expo-location';
 import { useAuth } from './AuthContext';
-import { API_URL } from '../config';
+import { API_URL, API_BASE_URL } from '../config';
 
 // Konfigurasi cara notifikasi muncul saat aplikasi sedang terbuka
 Notifications.setNotificationHandler({
@@ -17,8 +17,10 @@ Notifications.setNotificationHandler({
     }),
 });
 
+const statusFilters = ['All', 'Pending', 'On Delivery', 'Completed', 'Cancelled'];
+
 const ProfileScreen = ({ navigation }) => {
-    const { user, token, logout } = useAuth();
+    const { user, token, logout, updateUser } = useAuth();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editingOrderId, setEditingOrderId] = useState(null);
@@ -33,6 +35,10 @@ const ProfileScreen = ({ navigation }) => {
     const [newAddressLng, setNewAddressLng] = useState(null);
     const [isMapPickerVisible, setIsMapPickerVisible] = useState(false);
     const lastOrdersRef = useRef([]);
+
+    const filteredOrders = filterStatus 
+        ? orders.filter(o => o.status === filterStatus)
+        : orders;
 
     useEffect(() => {
         requestNotificationPermissions();
@@ -316,6 +322,51 @@ const ProfileScreen = ({ navigation }) => {
         );
     };
 
+    const openAddressMapPicker = async () => {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return Alert.alert('Error', 'Izin lokasi diperlukan');
+        setIsMapPickerVisible(true);
+    };
+
+    const handleMapPickerSelect = (e) => {
+        const { latitude, longitude } = e.nativeEvent.coordinate;
+        setNewAddressLat(latitude);
+        setNewAddressLng(longitude);
+    };
+
+    const confirmAddressLocation = async () => {
+        if (newAddressLat && newAddressLng) {
+            const reverseGeocode = await Location.reverseGeocodeAsync({
+                latitude: newAddressLat,
+                longitude: newAddressLng
+            });
+            if (reverseGeocode.length > 0) {
+                const { street, city, region } = reverseGeocode[0];
+                setNewAddressText(`${street || ''}, ${city || ''}, ${region || ''}`);
+            }
+            setIsMapPickerVisible(false);
+        }
+    };
+
+    const renderAddressItem = ({ item }) => (
+        <View style={styles.addressCard}>
+            <View style={styles.addressHeader}>
+                <Text style={styles.addressLabel}>{item.label} {item.is_default ? '(Utama)' : ''}</Text>
+                <TouchableOpacity onPress={() => {
+                    setCurrentAddress(item);
+                    setNewAddressLabel(item.label);
+                    setNewAddressText(item.address);
+                    setNewAddressLat(parseFloat(item.lat));
+                    setNewAddressLng(parseFloat(item.lng));
+                    setIsAddressModalVisible(true);
+                }}>
+                    <Text style={styles.addressEditText}>Edit</Text>
+                </TouchableOpacity>
+            </View>
+            <Text style={styles.addressText}>{item.address}</Text>
+        </View>
+    );
+
     const renderOrderItem = ({ item }) => (
         <View style={styles.orderCard}>
             <TouchableOpacity onPress={() => navigation.navigate('OrderDetail', { orderId: item.id })}>
@@ -364,7 +415,7 @@ const ProfileScreen = ({ navigation }) => {
             )}
             <TouchableOpacity onPress={() => navigation.navigate('OrderDetail', { orderId: item.id })}>
                 <View style={styles.itemsList}>
-                    {JSON.parse(item.items).map((prod, idx) => (
+                    {item.items && (typeof item.items === 'string' ? JSON.parse(item.items) : item.items).map((prod, idx) => (
                         <Text key={idx} style={styles.itemText}>
                             • {prod.nama} ({prod.qty}x)
                         </Text>
@@ -384,7 +435,7 @@ const ProfileScreen = ({ navigation }) => {
         }
     };
 
-    return (
+    return ( // Menggunakan ScrollView agar konten bisa di-scroll
         <View style={styles.container}>
             <View style={styles.profileHeader}>
                 <Text style={styles.userName}>{user?.username}</Text>
@@ -394,16 +445,17 @@ const ProfileScreen = ({ navigation }) => {
                 </TouchableOpacity>
             </View>
             
-            {/* Bagian Manajemen Alamat */}
-            <Text style={styles.sectionTitle}>Alamat Pengiriman</Text>
-            <FlatList
-                data={addresses}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={renderAddressItem}
-                ListEmptyComponent={<Text style={styles.emptyText}>Belum ada alamat tersimpan.</Text>}
-                scrollEnabled={false} // Agar tidak konflik dengan ScrollView utama
-            />
-            <Button title="Tambah Alamat Baru" onPress={() => {
+            <ScrollView> {/* Tambahkan ScrollView di sini */}
+                {/* Bagian Manajemen Alamat */}
+                <Text style={styles.sectionTitle}>Alamat Pengiriman</Text>
+                <FlatList
+                    data={addresses}
+                    keyExtractor={(item) => item.id.toString()}
+                    renderItem={renderAddressItem}
+                    ListEmptyComponent={<Text style={styles.emptyText}>Belum ada alamat tersimpan.</Text>}
+                    scrollEnabled={false} // Agar tidak konflik dengan ScrollView utama
+                />
+                <Button title="Tambah Alamat Baru" onPress={() => {
                 setCurrentAddress(null);
                 setNewAddressLabel('');
                 setNewAddressText('');
@@ -411,7 +463,7 @@ const ProfileScreen = ({ navigation }) => {
                 setNewAddressLng(null);
                 setIsAddressModalVisible(true);
             }} color="#007bff" />
-
+            
             <Modal
                 visible={isAddressModalVisible}
                 onRequestClose={() => setIsAddressModalVisible(false)}
@@ -449,25 +501,27 @@ const ProfileScreen = ({ navigation }) => {
                 animationType="slide"
             >
                 <View style={styles.mapModalContainer}>
-                    <MapView
-                        style={styles.mapModal}
-                        initialRegion={{
-                            latitude: newAddressLat || -6.200000,
-                            longitude: newAddressLng || 106.816666,
-                            latitudeDelta: 0.0922,
-                            longitudeDelta: 0.0421,
-                        }}
-                        onPress={handleMapPickerSelect}
-                    >
-                        {newAddressLat && newAddressLng && (
-                            <Marker
-                                coordinate={{ latitude: newAddressLat, longitude: newAddressLng }}
-                                title="Lokasi Pengiriman"
-                                draggable
-                                onDragEnd={handleMapPickerSelect}
-                            />
-                        )}
-                    </MapView>
+                    {Platform.OS === 'web' ? (
+                        <View style={styles.mapWebPlaceholder}>
+                            <Text>Peta tidak tersedia di web. Harap masukkan koordinat secara manual.</Text>
+                        </View>
+                    ) : (
+                        <MapView
+                            style={styles.mapModal}
+                            initialRegion={{
+                                latitude: newAddressLat || -6.200000,
+                                longitude: newAddressLng || 106.816666,
+                                latitudeDelta: 0.0922,
+                                longitudeDelta: 0.0421,
+                            }}
+                            onPress={handleMapPickerSelect}
+                            provider={PROVIDER_GOOGLE} // Penting untuk Android/iOS
+                        >
+                            {newAddressLat && newAddressLng && (
+                                <Marker coordinate={{ latitude: newAddressLat, longitude: newAddressLng }} title="Lokasi Pengiriman" draggable onDragEnd={handleMapPickerSelect} />
+                            )}
+                        </MapView>
+                    )}
                     <View style={styles.mapModalButtons}>
                         <Button title="Konfirmasi Lokasi" onPress={confirmAddressLocation} color="#28a745" />
                         <Button title="Batal" onPress={() => setIsMapPickerVisible(false)} color="#dc3545" />
@@ -490,7 +544,7 @@ const ProfileScreen = ({ navigation }) => {
                     </TouchableOpacity>
                 ))}
             </View>
-            {loading ? (
+            {loading ? ( // Pindahkan ActivityIndicator ke dalam ScrollView
                 <ActivityIndicator size="large" color="#ee4d2d" />
             ) : (
                 <FlatList // Gunakan filteredOrders
@@ -500,6 +554,7 @@ const ProfileScreen = ({ navigation }) => {
                     ListEmptyComponent={<Text style={styles.emptyText}>Belum ada pesanan.</Text>}
                 />
             )}
+            </ScrollView> {/* Tutup ScrollView */}
         </View>
     );
 };
@@ -546,7 +601,8 @@ const styles = StyleSheet.create({
     addressModalContainer: { flex: 1, padding: 20, justifyContent: 'center' },
     addressModalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
     addressModalActions: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 20 },
-    mapModalContainer: { flex: 1, paddingTop: 50 },
+    mapModalContainer: { flex: 1, paddingTop: 50 }, // Tambahkan padding untuk iOS notch
+    mapWebPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#e0e0e0' },
     mapModal: { flex: 1 },
     mapModalButtons: { flexDirection: 'row', justifyContent: 'space-around', padding: 10 },
     selectedAddressText: { padding: 10, textAlign: 'center', backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#eee' },

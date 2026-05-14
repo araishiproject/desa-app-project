@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, Button, Alert, Platform } from 'react-native';
-import * as Location from 'expo-location';
+import { View, Text, StyleSheet, Button, Alert, Platform, ActivityIndicator } from 'react-native';
+import * as Location from 'expo-location'; // Import Location
 import * as TaskManager from 'expo-task-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { io } from 'socket.io-client';
@@ -157,6 +157,10 @@ const CourierMapScreen = ({ route }) => {
         await Location.stopLocationUpdatesAsync(LOCATION_TRACKING_TASK);
         setIsTracking(false);
     };
+
+    if (Platform.OS === 'web') {
+        return <View style={styles.container}><Text style={styles.title}>Pelacakan Kurir tidak tersedia di Web.</Text></View>;
+    }
 
     const handleCompleteOrder = async () => {
         Alert.alert(

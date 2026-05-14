@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView, Alert } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView, Alert, Platform } from 'react-native';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps'; // Tambahkan PROVIDER_GOOGLE
 import { io } from 'socket.io-client'; // Pastikan ini diimpor
 import { API_URL, API_BASE_URL, SOCKET_URL } from '../config';
 import { useAuth } from './AuthContext';
@@ -76,28 +76,29 @@ const OrderDetailScreen = ({ route }) => {
             {order.status === 'On Delivery' && (
                 <View style={styles.mapContainer}>
                     <Text style={styles.sectionTitle}>Lokasi Kurir (Real-time):</Text>
-                    <MapView
-                        style={styles.map}
-                        initialRegion={{
-                            latitude: -6.200000, // Koordinat default desa
-                            longitude: 106.816666,
-                            latitudeDelta: 0.01,
-                            longitudeDelta: 0.01,
-                        }}
-                    >
-                        {courierLocation && (
-                            <Marker 
-                                coordinate={courierLocation} 
-                                title="Kurir" 
-                                description="Posisi kurir saat ini"
-                            />
-                        )}
-                    </MapView>
+                    {Platform.OS === 'web' ? (
+                        <View style={styles.mapWebPlaceholder}>
+                            <Text>Peta pelacakan tidak tersedia di web.</Text>
+                        </View>
+                    ) : (
+                        <MapView
+                            style={styles.map}
+                            initialRegion={{
+                                latitude: -6.200000, // Koordinat default desa
+                                longitude: 106.816666,
+                                latitudeDelta: 0.01,
+                                longitudeDelta: 0.01,
+                            }}
+                            provider={PROVIDER_GOOGLE} // Penting untuk Android/iOS
+                        >
+                            {courierLocation && (<Marker coordinate={courierLocation} title="Kurir" description="Posisi kurir saat ini" />)}
+                        </MapView>
+                    )}
                 </View>
             )}
 
             <Text style={styles.sectionTitle}>Produk yang Dibeli:</Text>
-            {JSON.parse(order.items).map((item, index) => (
+            {order.items && (typeof order.items === 'string' ? JSON.parse(order.items) : order.items).map((item, index) => (
                 <View key={index} style={styles.itemRow}>
                     <View>
                         <Text style={styles.itemName}>{item.nama}</Text>
@@ -118,6 +119,7 @@ const styles = StyleSheet.create({
     text: { fontSize: 14, color: '#555', marginBottom: 5 },
     sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
     mapContainer: { marginBottom: 20 },
+    mapWebPlaceholder: { width: '100%', height: 250, borderRadius: 10, justifyContent: 'center', alignItems: 'center', backgroundColor: '#e0e0e0' },
     map: { width: '100%', height: 250, borderRadius: 10 },
     itemRow: { 
         flexDirection: 'row', 

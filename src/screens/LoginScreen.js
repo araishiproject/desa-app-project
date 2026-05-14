@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, Button, Alert, StyleSheet, Text } from 'react-native';
+import { View, TextInput, Button, Alert, StyleSheet, Text, Platform } from 'react-native';
 import { useAuth } from './AuthContext';
 import { API_URL } from '../config';
 

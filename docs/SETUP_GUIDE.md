@@ -8,8 +8,8 @@ Sebelum mulai development, pastikan Anda sudah install:
 - **Node.js** >= 14.x ([Download](https://nodejs.org/))
 - **npm** >= 6.x atau **yarn**
 - **Git**
-- **MongoDB** >= 4.4 ([Download](https://www.mongodb.com/try/download/community))
-- **Redis** (optional, untuk development) ([Download](https://redis.io/download))
+- **MySQL/MariaDB** (XAMPP/WAMP disarankan)
+- **Redis** (optional, untuk development)
 
 ### Optional
 - **Docker** & **Docker Compose** (untuk containerized development)
@@ -50,9 +50,10 @@ NODE_ENV=development
 PORT=5000
 
 # Database Configuration
-MONGODB_URI=mongodb://localhost:27017/desa_app
-# Jika menggunakan MongoDB Atlas:
-# MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/desa_app
+DB_HOST=localhost
+DB_USER=root
+DB_PASS=
+DB_NAME=desa_app
 
 # JWT Configuration
 JWT_SECRET=your_super_secret_jwt_key_here_change_in_production
@@ -83,7 +84,7 @@ FRONTEND_URL=http://localhost:3000
 
 ### 2.4 Setup Database
 
-Jika menggunakan MongoDB lokal, pastikan MongoDB service berjalan:
+Jika menggunakan MySQL/MariaDB, pastikan service berjalan (misal: XAMPP/WAMP):
 
 ```bash
 # macOS (jika install via Homebrew)
@@ -109,23 +110,155 @@ npm run dev
 Server akan berjalan di `http://localhost:5000`
 
 ## Step 3: Setup Frontend
-
-### 3.1 Open New Terminal, Navigate to Frontend Directory
+### 3.1 Install Dependencies (di root proyek)
 ```bash
-cd frontend
+npm install # atau npm run clean jika ada masalah
 ```
 
-### 3.2 Install Dependencies
+### 3.2 Start Frontend Development Server (di root proyek)
 ```bash
-npm install
+npx expo start
 ```
 
-### 3.3 Create Environment Variables
+Pilih `w` untuk menjalankan di browser.
+
+## Step 4: Verify Installation
+
+### Check Backend
 ```bash
-cp .env.example .env.local
+curl http://localhost:5000/api/health # Ganti dengan endpoint yang sesuai, misal /api/products
 ```
 
-Edit `.env.local`:
+Expected response:
+```json
+{
+  "message": "API Desa App running..."
+}
+```
+
+### Check Frontend
+Buka browser ke `http://localhost:8081` (atau port yang ditunjukkan Expo) - Anda seharusnya melihat homepage aplikasi.
+
+## Using Docker (Alternative Setup)
+
+### Prerequisites
+- Docker >= 20.x
+- Docker Compose >= 1.29.x
+
+### Run with Docker Compose
+
+```bash
+# Dari root directory
+docker-compose up -d
+```
+
+Services akan accessible di:
+- Frontend: http://localhost:8081 (atau port Expo)
+- Backend: http://localhost:5000
+- MongoDB: localhost:27017
+- Redis: localhost:6379
+
+### Stop Services
+```bash
+docker-compose down
+```
+
+### View Logs
+```bash
+# All services
+docker-compose logs -f
+
+# Specific service
+docker-compose logs -f backend
+```
+
+## Useful Commands
+
+### Backend (dari folder `backend`)
+```bash
+cd backend
+
+# Start development server
+npm run dev
+```
+
+### Frontend (dari root proyek)
+```bash
+# Start development server (mobile/web)
+npx expo start
+
+# Start development server (web only)
+npx expo start --web
+
+# Build for production (web)
+npx expo export --platform web
+```
+
+## Troubleshooting
+
+### MySQL Connection Error
+```
+"ER_ACCESS_DENIED_ERROR" atau "Connection refused"
+```
+
+**Solution:**
+- Pastikan MySQL service sudah berjalan (XAMPP/WAMP).
+- Check DB_HOST, DB_USER, DB_PASS, DB_NAME di file `.env` backend.
+- Pastikan user MySQL memiliki izin yang benar untuk database `desa_app`.
+
+### Port Already in Use
+```
+"listen EADDRINUSE: address already in use :::5000"
+```
+
+**Solution:**
+- Cari proses yang menggunakan port 5000 dan hentikan.
+  ```bash
+  # Windows
+  netstat -ano | findstr :5000
+  taskkill /PID <PID_NUMBER> /F
+  # Linux/macOS
+  lsof -i :5000
+  kill -9 <PID_NUMBER>
+  ```
+- Atau ganti `PORT` di `.env` backend.
+
+### CORS Error
+```
+"Access to XMLHttpRequest at 'http://localhost:5000' from origin 'http://localhost:3000' 
+has been blocked by CORS policy"
+```
+
+**Solution:**
+- Pastikan `cors()` middleware sudah terpasang di `backend/server.js`.
+- Pastikan `FRONTEND_URL` di `.env` backend sudah benar (misal: `http://localhost:8081` jika Expo Web berjalan di port itu).
+- Restart backend server.
+
+### Module Not Found (Frontend)
+```
+Cannot find module 'react-native-maps'
+```
+
+**Solution:**
+- Pastikan Anda sudah menjalankan `npm install` dan `npx expo install --fix` setelah semua perubahan `package.json`.
+- Jika error ini muncul di web, itu normal karena `react-native-maps` tidak mendukung web secara native. Kode sudah diperbaiki untuk menampilkan placeholder di web.
+
+## Next Steps
+
+1. ✅ Baca dokumentasi lengkap di `/docs`
+2. ✅ Explore codebase structure
+3. ✅ Review API documentation di `/docs/API.md`
+4. ✅ Start coding!
+
+## Need Help?
+
+- 📖 Check documentation folder
+- 🐛 Create an issue on GitHub
+- 💬 Start a discussion
+
+---
+
+Happy coding! 🚀
 
 ```env
 REACT_APP_API_URL=http://localhost:5000/api

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, StyleSheet, Button, TouchableOpacity, Alert, TextInput, Modal } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import { View, Text, FlatList, StyleSheet, Button, TouchableOpacity, Alert, TextInput, Modal, ActivityIndicator, Platform } from 'react-native';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps'; // Tambahkan PROVIDER_GOOGLE
 import * as Location from 'expo-location';
 import { useCart } from '../context/CartContext';
 import { useAuth } from './AuthContext';
@@ -12,6 +12,7 @@ const CartScreen = () => {
     const [deliveryLat, setDeliveryLat] = useState(null);
     const [deliveryLng, setDeliveryLng] = useState(null);
     const [isMapVisible, setIsMapVisible] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const { user, token } = useAuth();
 
     const handleCheckout = async () => {
@@ -35,6 +36,7 @@ const CartScreen = () => {
             }))
         };
 
+        setIsSubmitting(true);
         try {
             const response = await fetch(`${API_URL}/orders`, {
                 method: 'POST',
@@ -118,7 +120,7 @@ const CartScreen = () => {
                                         </TouchableOpacity>
                                     </View>
                                 </View>
-                                <TouchableOpacity onPress={() => removeFromCart(item.id)}>
+                                <TouchableOpacity style={styles.removeBtn} onPress={() => removeFromCart(item.id)}>
                                     <Text style={styles.removeText}>Hapus</Text>
                                 </TouchableOpacity>
                             </View>
@@ -139,23 +141,27 @@ const CartScreen = () => {
                             animationType="slide"
                         >
                             <View style={styles.mapModalContainer}>
-                                <MapView
-                                    style={styles.mapModal}
-                                    initialRegion={{
-                                        latitude: deliveryLat || -6.200000,
-                                        longitude: deliveryLng || 106.816666,
-                                        latitudeDelta: 0.0922,
-                                        longitudeDelta: 0.0421,
-                                    }}
-                                    onPress={handleMapPress}
-                                >
-                                    {deliveryLat && deliveryLng && (
-                                        <Marker
-                                            coordinate={{ latitude: deliveryLat, longitude: deliveryLng }}
-                                            title="Lokasi Pengiriman"
-                                        />
-                                    )}
-                                </MapView>
+                                {Platform.OS === 'web' ? (
+                                    <View style={styles.mapWebPlaceholder}>
+                                        <Text>Peta tidak tersedia di web. Harap masukkan koordinat secara manual.</Text>
+                                    </View>
+                                ) : (
+                                    <MapView
+                                        style={styles.mapModal}
+                                        initialRegion={{
+                                            latitude: deliveryLat || -6.200000,
+                                            longitude: deliveryLng || 106.816666,
+                                            latitudeDelta: 0.0922,
+                                            longitudeDelta: 0.0421,
+                                        }}
+                                        onPress={handleMapPress}
+                                        provider={PROVIDER_GOOGLE} // Penting untuk Android/iOS
+                                    >
+                                        {deliveryLat && deliveryLng && (
+                                            <Marker coordinate={{ latitude: deliveryLat, longitude: deliveryLng }} title="Lokasi Pengiriman" />
+                                        )}
+                                    </MapView>
+                                )}
                                 <View style={styles.mapModalButtons}>
                                     <Button title="Konfirmasi Lokasi" onPress={confirmLocation} color="#28a745" />
                                     <Button title="Batal" onPress={() => setIsMapVisible(false)} color="#dc3545" />
@@ -165,8 +171,12 @@ const CartScreen = () => {
                                 ) : null}
                             </View>
                         </Modal>
-                        <Text style={styles.totalText}>Total Tagihan: Rp {getTotalPrice()}</Text>
-                        <Button title="Buat Pesanan" onPress={handleCheckout} color="#ee4d2d" />
+                        <Text style={styles.totalText}>Total Tagihan: Rp {getTotalPrice().toLocaleString()}</Text>
+                        {isSubmitting ? (
+                            <ActivityIndicator size="small" color="#ee4d2d" />
+                        ) : (
+                            <Button title="Buat Pesanan Sekarang" onPress={handleCheckout} color="#ee4d2d" />
+                        )}
                         <TouchableOpacity style={styles.clearButton} onPress={clearCart}>
                             <Text style={styles.clearText}>Kosongkan Keranjang</Text>
                         </TouchableOpacity>
@@ -185,7 +195,8 @@ const styles = StyleSheet.create({
     info: { flex: 1 },
     name: { fontSize: 16, fontWeight: 'bold' },
     price: { color: '#666', fontSize: 14 },
-    removeText: { color: 'red', fontWeight: 'bold' },
+    removeBtn: { padding: 5 },
+    removeText: { color: '#dc3545', fontWeight: 'bold', fontSize: 12 },
     footer: { marginTop: 20, padding: 15, backgroundColor: '#fff', borderRadius: 8, borderTopWidth: 1, borderColor: '#eee' },
     quantityContainer: {
         flexDirection: 'row',
@@ -220,9 +231,9 @@ const styles = StyleSheet.create({
     ,
     mapModalContainer: { flex: 1, paddingTop: 50 },
     mapModal: { flex: 1 },
+    mapWebPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#e0e0e0' },
     mapModalButtons: { flexDirection: 'row', justifyContent: 'space-around', padding: 10 },
     selectedAddressText: { padding: 10, textAlign: 'center', backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#eee' }
-
 });
 
 export default CartScreen;

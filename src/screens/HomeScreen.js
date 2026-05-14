@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Button, Image, TextInput, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Button, Image, TextInput, ActivityIndicator, RefreshControl, Platform } from 'react-native';
 import { useCart } from '../context/CartContext';
 import { API_BASE_URL, API_URL } from '../config';
 
@@ -17,15 +17,25 @@ const HomeScreen = ({ navigation }) => {
 
     const fetchProducts = async () => {
         setLoading(true);
-        let url = `${API_URL}/products?`;
-        if (searchQuery) url += `search=${searchQuery}&`;
-        if (selectedCategory) url += `category=${selectedCategory}&`;
         try {
-            const response = await fetch(url);
+            const params = new URLSearchParams();
+            if (searchQuery) params.append('search', searchQuery);
+            if (selectedCategory) params.append('category', selectedCategory);
+            
+            const response = await fetch(`${API_URL}/products?${params.toString()}`);
             const data = await response.json();
-            setProducts(data);
-        } catch (err) { console.error(err); } finally { setLoading(false); }
+            setProducts(Array.isArray(data) ? data : []);
+        } catch (err) { 
+            console.error('Fetch products error:', err);
+            setProducts([]);
+        } finally { 
+            setLoading(false); 
+        }
     };
+
+    const onRefresh = useCallback(() => {
+        fetchProducts();
+    }, [searchQuery, selectedCategory]);
 
     return (
         <View style={styles.container}>
@@ -56,6 +66,9 @@ const HomeScreen = ({ navigation }) => {
                 <FlatList
                     data={products}
                     keyExtractor={(item) => item.id.toString()}
+                    refreshControl={
+                        <RefreshControl refreshing={loading} onRefresh={onRefresh} />
+                    }
                     renderItem={({ item }) => (
                         <View style={styles.card}>
                             <Image 
@@ -65,13 +78,22 @@ const HomeScreen = ({ navigation }) => {
                             <View style={styles.info}>
                                 <Text style={styles.name}>{item.nama}</Text>
                                 <Text style={styles.price}>Rp {item.harga}</Text>
-                                <Text>Stok: {item.stok}</Text>
+                                <Text style={item.stok > 0 ? styles.stokText : styles.outOfStockText}>
+                                    {item.stok > 0 ? `Stok: ${item.stok}` : 'Stok Habis'}
+                                </Text>
                             </View>
-                            <TouchableOpacity style={styles.addButton} onPress={() => addToCart(item)}>
-                                <Text style={styles.addButtonText}>Tambah</Text>
+                            <TouchableOpacity 
+                                style={[styles.addButton, item.stok <= 0 && styles.disabledButton]} 
+                                onPress={() => item.stok > 0 && addToCart(item)}
+                                disabled={item.stok <= 0}
+                            >
+                                <Text style={styles.addButtonText}>{item.stok > 0 ? 'Tambah' : 'Habis'}</Text>
                             </TouchableOpacity>
                         </View>
                     )}
+                    ListEmptyComponent={
+                        <Text style={styles.emptyText}>Produk tidak ditemukan.</Text>
+                    }
                 />
             )}
         </View>
@@ -89,13 +111,17 @@ const styles = StyleSheet.create({
     price: { color: '#ee4d2d', fontWeight: 'bold' },
     addButton: { backgroundColor: '#ee4d2d', paddingVertical: 8, paddingHorizontal: 15, borderRadius: 5 },
     addButtonText: { color: '#fff', fontWeight: 'bold' },
+    disabledButton: { backgroundColor: '#ccc' },
+    stokText: { color: '#666', fontSize: 12 },
+    outOfStockText: { color: 'red', fontSize: 12, fontWeight: 'bold' },
     searchInput: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, marginBottom: 15 },
     categoryFilter: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 15, gap: 10 },
     categoryButton: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, backgroundColor: '#e0e0e0' },
     selectedCategoryButton: { backgroundColor: '#ee4d2d' },
     categoryButtonText: { color: '#333', fontSize: 12 },
     selectedCategoryButtonText: { color: '#fff' },
-    loadingIndicator: { marginTop: 50 }
+    loadingIndicator: { marginTop: 50 },
+    emptyText: { textAlign: 'center', marginTop: 20, color: '#999' }
 });
 
 export default HomeScreen;
